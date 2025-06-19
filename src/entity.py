@@ -106,8 +106,18 @@ class Entity(ABC):
         top_overlap = self.bottom - other.y
         bottom_overlap = other.bottom - self.y
         
-        # Find minimum overlap
-        min_overlap = min(left_overlap, right_overlap, top_overlap, bottom_overlap)
+        # Ensure positive overlaps
+        left_overlap = max(0, left_overlap)
+        right_overlap = max(0, right_overlap)
+        top_overlap = max(0, top_overlap)
+        bottom_overlap = max(0, bottom_overlap)
+        
+        # Find minimum overlap (avoid zero values)
+        overlaps = [o for o in [left_overlap, right_overlap, top_overlap, bottom_overlap] if o > 0]
+        if not overlaps:
+            return None
+            
+        min_overlap = min(overlaps)
         
         if min_overlap == left_overlap:
             return "right"  # Other is to the right

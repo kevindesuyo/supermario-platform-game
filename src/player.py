@@ -135,6 +135,8 @@ class Player(Entity):
     
     def check_ground_collision(self, entities: List[Entity]) -> None:
         """Check for ground collision"""
+        from .constants import ENTITY_PLATFORM
+        
         self.grounded = False
         
         # Create a test rectangle slightly below the player
@@ -143,7 +145,7 @@ class Player(Entity):
         
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == "platform" and 
+                entity.entity_type == ENTITY_PLATFORM and 
                 test_rect.colliderect(entity.rect)):
                 self.grounded = True
                 self.can_jump = True
@@ -152,9 +154,11 @@ class Player(Entity):
     
     def handle_platform_collision(self, entities: List[Entity]) -> None:
         """Handle collision with platforms"""
+        from .constants import ENTITY_PLATFORM
+        
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == "platform" and 
+                entity.entity_type == ENTITY_PLATFORM and 
                 self.collides_with(entity)):
                 
                 collision_side = self.get_collision_side(entity)
@@ -177,6 +181,36 @@ class Player(Entity):
                     # Hitting platform from the right
                     self.x = entity.right
                     self.velocity_x = 0
+    
+    def handle_enemy_collision(self, entities: List[Entity]) -> None:
+        """Handle collision with enemies"""
+        from .constants import ENTITY_ENEMY
+        
+        try:
+            for entity in entities:
+                if (entity is not None and entity != self and 
+                    hasattr(entity, 'entity_type') and entity.entity_type == ENTITY_ENEMY and 
+                    hasattr(entity, 'active') and entity.active and 
+                    self.collides_with(entity)):
+                    
+                    # Check if player is stomping enemy
+                    if (self.velocity_y > 0 and 
+                        self.bottom <= entity.y + 10):  # Landing on top
+                        
+                        # Stomp enemy
+                        if hasattr(entity, 'stomp'):
+                            try:
+                                points = entity.stomp()
+                                self.score += points
+                                self.velocity_y = -200  # Bounce
+                            except Exception:
+                                pass  # Ignore stomp errors
+                    else:
+                        # Player hit by enemy
+                        if not self.invulnerable:
+                            self.take_damage()
+        except Exception:
+            pass  # Ignore collision errors
     
     def update(self, dt: float, entities: List[Entity]) -> None:
         """Update player logic"""
@@ -206,6 +240,9 @@ class Player(Entity):
         
         # Check if on ground
         self.check_ground_collision(entities)
+        
+        # Handle enemy collisions
+        self.handle_enemy_collision(entities)
         
         # Update animation
         self.update_animation(dt)

@@ -60,6 +60,8 @@ class Enemy(Entity):
     
     def check_ground_collision(self, entities: List[Entity]) -> None:
         """Check for ground collision"""
+        from .constants import ENTITY_PLATFORM
+        
         self.grounded = False
         
         test_rect = pygame.Rect(int(self.x), int(self.y + self.height), 
@@ -67,33 +69,37 @@ class Enemy(Entity):
         
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == "platform" and 
+                entity.entity_type == ENTITY_PLATFORM and 
                 test_rect.colliderect(entity.rect)):
                 self.grounded = True
                 break
     
     def check_wall_collision(self, entities: List[Entity]) -> bool:
         """Check for wall collision"""
+        from .constants import ENTITY_PLATFORM
+        
         # Check ahead for walls
         test_x = self.x + (self.width if self.direction > 0 else -1)
         test_rect = pygame.Rect(int(test_x), int(self.y), 1, self.height)
         
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == "platform" and 
+                entity.entity_type == ENTITY_PLATFORM and 
                 test_rect.colliderect(entity.rect)):
                 return True
         return False
     
     def check_cliff_ahead(self, entities: List[Entity]) -> bool:
         """Check for cliff ahead"""
+        from .constants import ENTITY_PLATFORM
+        
         # Check if there's ground ahead
         test_x = self.x + (self.width + 10 if self.direction > 0 else -10)
         test_rect = pygame.Rect(int(test_x), int(self.y + self.height), 1, 10)
         
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == "platform" and 
+                entity.entity_type == ENTITY_PLATFORM and 
                 test_rect.colliderect(entity.rect)):
                 return False
         return True
@@ -120,9 +126,11 @@ class Enemy(Entity):
         self.y += self.velocity_y * dt
         
         # Handle platform collision
+        from .constants import ENTITY_PLATFORM
+        
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == "platform" and 
+                entity.entity_type == ENTITY_PLATFORM and 
                 self.collides_with(entity)):
                 
                 collision_side = self.get_collision_side(entity)
@@ -181,12 +189,20 @@ class Enemy(Entity):
         else:
             color = self.get_color()
         
+        # Draw main body
         pygame.draw.rect(screen, color, (screen_x, screen_y, self.width, self.height))
+        pygame.draw.rect(screen, (0, 0, 0), (screen_x, screen_y, self.width, self.height), 2)
         
-        # Draw direction indicator
+        # Draw specific enemy details
+        self.render_details(screen, screen_x, screen_y)
+    
+    def render_details(self, screen: pygame.Surface, screen_x: int, screen_y: int) -> None:
+        """Render enemy-specific visual details - override in subclasses"""
         if not self.dead:
+            # Default eyes
             eye_x = screen_x + (self.width - 5 if self.direction > 0 else 5)
             pygame.draw.circle(screen, (255, 255, 255), (eye_x, screen_y + 8), 3)
+            pygame.draw.circle(screen, (0, 0, 0), (eye_x, screen_y + 8), 1)
     
     def get_color(self) -> tuple:
         """Get enemy color - override in subclasses"""
@@ -215,6 +231,33 @@ class Goomba(Enemy):
     
     def get_color(self) -> tuple:
         return (139, 69, 19)  # Brown
+    
+    def render_details(self, screen: pygame.Surface, screen_x: int, screen_y: int) -> None:
+        """Render Goomba details"""
+        if self.dead:
+            return
+        
+        # Body shape (rounded top)
+        pygame.draw.circle(screen, self.get_color(), 
+                         (screen_x + self.width//2, screen_y + 8), 8)
+        
+        # Eyes
+        pygame.draw.circle(screen, (255, 255, 255), (screen_x + 6, screen_y + 6), 2)
+        pygame.draw.circle(screen, (255, 255, 255), (screen_x + 18, screen_y + 6), 2)
+        pygame.draw.circle(screen, (0, 0, 0), (screen_x + 6, screen_y + 6), 1)
+        pygame.draw.circle(screen, (0, 0, 0), (screen_x + 18, screen_y + 6), 1)
+        
+        # Angry eyebrows
+        pygame.draw.line(screen, (0, 0, 0), (screen_x + 4, screen_y + 4), 
+                        (screen_x + 8, screen_y + 2), 2)
+        pygame.draw.line(screen, (0, 0, 0), (screen_x + 16, screen_y + 2), 
+                        (screen_x + 20, screen_y + 4), 2)
+        
+        # Small feet
+        pygame.draw.ellipse(screen, (101, 67, 33), 
+                          (screen_x + 2, screen_y + self.height - 4, 6, 4))
+        pygame.draw.ellipse(screen, (101, 67, 33), 
+                          (screen_x + self.width - 8, screen_y + self.height - 4, 6, 4))
 
 class Koopa(Enemy):
     """Turtle enemy that can hide in shell"""
@@ -277,6 +320,50 @@ class Koopa(Enemy):
         if self.shell_mode:
             return GREEN
         return (0, 128, 0)  # Dark green
+    
+    def render_details(self, screen: pygame.Surface, screen_x: int, screen_y: int) -> None:
+        """Render Koopa details"""
+        if self.dead:
+            return
+        
+        if self.shell_mode:
+            # Shell pattern
+            pygame.draw.circle(screen, (0, 100, 0), 
+                             (screen_x + self.width//2, screen_y + self.height//2), 
+                             self.width//2 - 2)
+            
+            # Shell segments
+            for i in range(3):
+                y_offset = i * 6 + 4
+                pygame.draw.ellipse(screen, (0, 80, 0), 
+                                  (screen_x + 4, screen_y + y_offset, 
+                                   self.width - 8, 4))
+        else:
+            # Head
+            pygame.draw.circle(screen, (50, 150, 50), 
+                             (screen_x + self.width//2, screen_y + 8), 6)
+            
+            # Eyes
+            pygame.draw.circle(screen, (255, 255, 255), (screen_x + 8, screen_y + 6), 2)
+            pygame.draw.circle(screen, (255, 255, 255), (screen_x + 20, screen_y + 6), 2)
+            pygame.draw.circle(screen, (0, 0, 0), (screen_x + 8, screen_y + 6), 1)
+            pygame.draw.circle(screen, (0, 0, 0), (screen_x + 20, screen_y + 6), 1)
+            
+            # Shell on back
+            pygame.draw.ellipse(screen, (0, 100, 0), 
+                              (screen_x + 2, screen_y + 12, self.width - 4, 16))
+            
+            # Shell pattern
+            pygame.draw.ellipse(screen, (0, 80, 0), 
+                              (screen_x + 4, screen_y + 14, self.width - 8, 4))
+            pygame.draw.ellipse(screen, (0, 80, 0), 
+                              (screen_x + 4, screen_y + 20, self.width - 8, 4))
+            
+            # Legs
+            pygame.draw.rect(screen, (50, 150, 50), 
+                           (screen_x + 4, screen_y + self.height - 6, 4, 6))
+            pygame.draw.rect(screen, (50, 150, 50), 
+                           (screen_x + self.width - 8, screen_y + self.height - 6, 4, 6))
 
 class Piranha(Enemy):
     """Plant enemy that pops up from pipes"""
@@ -321,6 +408,43 @@ class Piranha(Enemy):
     
     def get_color(self) -> tuple:
         return RED
+    
+    def render_details(self, screen: pygame.Surface, screen_x: int, screen_y: int) -> None:
+        """Render Piranha Plant details"""
+        if self.dead or not self.visible:
+            return
+        
+        # Main head (circular)
+        pygame.draw.circle(screen, (200, 50, 50), 
+                         (screen_x + self.width//2, screen_y + self.height//2), 
+                         self.width//2 - 2)
+        
+        # Mouth
+        mouth_width = self.width - 8
+        mouth_height = 6
+        pygame.draw.ellipse(screen, (150, 0, 0), 
+                          (screen_x + 4, screen_y + self.height//2 - 3, 
+                           mouth_width, mouth_height))
+        
+        # Teeth
+        for i in range(4):
+            tooth_x = screen_x + 6 + i * 5
+            pygame.draw.polygon(screen, (255, 255, 255), [
+                (tooth_x, screen_y + self.height//2 - 2),
+                (tooth_x + 2, screen_y + self.height//2 + 2),
+                (tooth_x + 4, screen_y + self.height//2 - 2)
+            ])
+        
+        # Eyes (angry)
+        pygame.draw.circle(screen, (255, 255, 255), (screen_x + 8, screen_y + 8), 3)
+        pygame.draw.circle(screen, (255, 255, 255), (screen_x + 24, screen_y + 8), 3)
+        pygame.draw.circle(screen, (255, 0, 0), (screen_x + 8, screen_y + 8), 2)
+        pygame.draw.circle(screen, (255, 0, 0), (screen_x + 24, screen_y + 8), 2)
+        
+        # Spots
+        pygame.draw.circle(screen, (180, 30, 30), (screen_x + 6, screen_y + 18), 2)
+        pygame.draw.circle(screen, (180, 30, 30), (screen_x + 22, screen_y + 20), 2)
+        pygame.draw.circle(screen, (180, 30, 30), (screen_x + 14, screen_y + 24), 2)
 
 class FlyingEnemy(Enemy):
     """Flying enemy with sine wave movement"""
@@ -355,6 +479,46 @@ class FlyingEnemy(Enemy):
     
     def get_color(self) -> tuple:
         return PURPLE
+    
+    def render_details(self, screen: pygame.Surface, screen_x: int, screen_y: int) -> None:
+        """Render Flying Enemy details"""
+        if self.dead:
+            return
+        
+        # Body (oval)
+        pygame.draw.ellipse(screen, (128, 0, 128), 
+                          (screen_x + 2, screen_y + 8, self.width - 4, 12))
+        
+        # Wings (animated)
+        wing_offset = int(self.time_offset * 20) % 4 - 2
+        
+        # Left wing
+        pygame.draw.ellipse(screen, (180, 120, 180), 
+                          (screen_x - 4, screen_y + 6 + wing_offset, 8, 16))
+        pygame.draw.ellipse(screen, (160, 100, 160), 
+                          (screen_x - 3, screen_y + 7 + wing_offset, 6, 14))
+        
+        # Right wing
+        pygame.draw.ellipse(screen, (180, 120, 180), 
+                          (screen_x + self.width - 4, screen_y + 6 - wing_offset, 8, 16))
+        pygame.draw.ellipse(screen, (160, 100, 160), 
+                          (screen_x + self.width - 3, screen_y + 7 - wing_offset, 6, 14))
+        
+        # Eyes
+        pygame.draw.circle(screen, (255, 255, 255), (screen_x + 6, screen_y + 12), 2)
+        pygame.draw.circle(screen, (255, 255, 255), (screen_x + 18, screen_y + 12), 2)
+        pygame.draw.circle(screen, (0, 0, 0), (screen_x + 6, screen_y + 12), 1)
+        pygame.draw.circle(screen, (0, 0, 0), (screen_x + 18, screen_y + 12), 1)
+        
+        # Antennae
+        pygame.draw.line(screen, (100, 0, 100), 
+                        (screen_x + 8, screen_y + 4), 
+                        (screen_x + 6, screen_y), 2)
+        pygame.draw.line(screen, (100, 0, 100), 
+                        (screen_x + 16, screen_y + 4), 
+                        (screen_x + 18, screen_y), 2)
+        pygame.draw.circle(screen, (150, 50, 150), (screen_x + 6, screen_y), 2)
+        pygame.draw.circle(screen, (150, 50, 150), (screen_x + 18, screen_y), 2)
 
 class EnemySpawner:
     """Factory for creating enemies"""
