@@ -2,14 +2,19 @@
 
 A Super Mario-like platform game built with Python and Pygame, designed with extensibility and modularity in mind.
 
+This repository now includes a more playable core loop with collectibles, power-ups, a goal flag, and basic polish to feel closer to a game (roughly a 40% milestone).
+
 ## Features
 
 - **Modular Entity System**: Extensible architecture for game objects
 - **Physics-based Movement**: Realistic platformer physics with gravity, jumping, and collision detection
 - **Multiple Enemy Types**: Various AI behaviors including Goombas, Koopas, Piranha Plants, and Flying enemies
 - **Level System**: Tile-based level design with platform generation
+- **Collectibles & Power-ups (new)**: Coins, question/brick blocks, mushroom and fire-flower power-ups
+- **Goal Flag (new)**: Reach the flag to complete the level and earn a time bonus
+- **UI/States Polish (new)**: Start countdown, pause overlay, level-complete flow, restart with `R`
 - **Visual Effects**: Particle systems, explosions, score popups, and trails
-- **Sound System**: Integrated sound manager for music and effects
+- **Sound System**: Integrated sound manager for music and effects (optional; assets not bundled)
 - **State Management**: Clean separation between menu, gameplay, pause, and game over states
 - **Camera System**: Smooth camera following with bounds
 
@@ -50,18 +55,22 @@ The game follows a modular architecture designed for easy extension:
 - **Jump**: W/Space/Up Arrow
 - **Run**: Hold Shift
 - **Pause**: ESC or P
+- **Restart Level**: R
 
 ## Installation and Setup
 
-1. Install Python 3.7 or higher
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Run the game:
-   ```bash
-   python main.py
-   ```
+1. Install Python 3.9+ (3.12 tested)
+2. (Recommended) Create a virtual environment:
+   - Windows (PowerShell):
+     - `python -m venv .venv`
+     - `.\.venv\Scripts\activate`
+   - macOS/Linux:
+     - `python -m venv .venv`
+     - `source .venv/bin/activate`
+3. Install dependencies:
+   - `pip install -r requirements.txt`
+4. Run the game:
+   - `python main.py`
 
 ## Extending the Game
 
@@ -108,8 +117,8 @@ The architecture is designed for easy extension:
 
 ## Future Expansion Ideas
 
-- **Power-up System**: Mushroom, Fire Flower, Star power-ups
-- **Collectibles**: Coins, hidden blocks, bonus areas
+- **Power-up System**: Star power-up, invincibility chain scoring
+- **Collectibles**: Hidden blocks, bonus areas, 1-up mushrooms
 - **Level Editor**: In-game level creation tools
 - **Multiplayer**: Split-screen or network multiplayer
 - **Boss Enemies**: Large enemies with multiple phases

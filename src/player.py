@@ -47,6 +47,9 @@ class Player(Entity):
         self.score = 0
         self.coins = 0
         
+        # Lifecycle
+        self.needs_respawn = False
+        
         # Input state
         self.input_left = False
         self.input_right = False
@@ -153,12 +156,12 @@ class Player(Entity):
                 break
     
     def handle_platform_collision(self, entities: List[Entity]) -> None:
-        """Handle collision with platforms"""
+        """Handle collision with platforms and solid blocks"""
         from .constants import ENTITY_PLATFORM
         
         for entity in entities:
             if (entity != self and entity.solid and 
-                entity.entity_type == ENTITY_PLATFORM and 
+                (entity.entity_type == ENTITY_PLATFORM or getattr(entity, 'entity_type', '') == 'block') and 
                 self.collides_with(entity)):
                 
                 collision_side = self.get_collision_side(entity)
@@ -173,6 +176,12 @@ class Player(Entity):
                     # Hitting platform from below
                     self.y = entity.bottom
                     self.velocity_y = 0
+                    # Notify bumpable blocks
+                    if hasattr(entity, 'on_bumped'):
+                        try:
+                            entity.on_bumped(self)
+                        except Exception:
+                            pass
                 elif collision_side == "left" and self.velocity_x > 0:
                     # Hitting platform from the left
                     self.x = entity.x - self.width
@@ -267,9 +276,10 @@ class Player(Entity):
             if self.lives <= 0:
                 self.destroy()
             else:
-                # Respawn logic would go here
+                # Flag for respawn at level spawn point
                 self.invulnerable = True
                 self.invulnerable_timer = 3.0
+                self.needs_respawn = True
     
     def collect_coin(self) -> None:
         """Collect a coin"""

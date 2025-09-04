@@ -14,6 +14,9 @@ from .player import Player
 from .level import Level, LevelBuilder
 from .enemies import EnemySpawner
 from .effects import EffectsManager
+from .collectibles import Coin, QuestionBlock, BrickBlock
+from .powerups import Mushroom, FireFlower
+from .goal import GoalFlag
 
 class Camera:
     """Simple camera system for following the player"""
@@ -140,6 +143,8 @@ class PlayingState(GameState):
         self.score = 0
         self.time_remaining = 400
         self.level_complete = False
+        self.level_intro_timer = 0.0
+        self.level_complete_timer = 0.0
         
         # UI
         pygame.font.init()
@@ -166,6 +171,28 @@ class PlayingState(GameState):
                 spawn_data['type'], spawn_data['x'], spawn_data['y']
             )
             self.entity_manager.add_entity(enemy)
+
+        # Spawn collectibles
+        for spawn_data in self.level.collectible_spawns:
+            if spawn_data['type'] == 'coin':
+                self.entity_manager.add_entity(Coin(spawn_data['x'], spawn_data['y']))
+
+        # Spawn power-ups (placed in the world; blocks can also produce them)
+        for spawn_data in self.level.powerup_spawns:
+            if spawn_data['type'] == 'mushroom':
+                self.entity_manager.add_entity(Mushroom(spawn_data['x'], spawn_data['y']))
+            elif spawn_data['type'] == 'fire_flower':
+                self.entity_manager.add_entity(FireFlower(spawn_data['x'], spawn_data['y']))
+
+        # Add a few blocks for interaction
+        # Question blocks above first platform row
+        self.entity_manager.add_entity(QuestionBlock(12 * 32, 14 * 32, contains='coin'))
+        self.entity_manager.add_entity(QuestionBlock(13 * 32, 14 * 32, contains='mushroom'))
+        self.entity_manager.add_entity(BrickBlock(14 * 32, 14 * 32))
+
+        # Goal flag
+        gx, gy = self.level.goal_point
+        self.entity_manager.add_entity(GoalFlag(gx, gy))
         
         # Set camera bounds
         self.camera.set_bounds(0, self.level.pixel_width, 0, self.level.pixel_height)
@@ -174,6 +201,8 @@ class PlayingState(GameState):
         self.score = self.player.score if self.player else 0
         self.time_remaining = self.level.time_limit
         self.level_complete = False
+        self.level_intro_timer = 1.0
+        self.level_complete_timer = 0.0
     
     def exit(self) -> None:
         """Clean up gameplay"""
@@ -185,6 +214,10 @@ class PlayingState(GameState):
         if event.type == pygame.KEYDOWN:
             if event.key in KEYS_PAUSE:
                 self.game_engine.change_state(STATE_PAUSED)
+            elif event.key == pygame.K_r:
+                # Restart level
+                self.exit()
+                self.enter()
     
     def update(self, dt: float) -> None:
         """Update gameplay"""
@@ -199,8 +232,21 @@ class PlayingState(GameState):
             self.time_remaining = 0
             self.player.take_damage()  # Time up
         
-        # Update entities
-        self.entity_manager.update(dt)
+        # Intro freeze: small delay before control
+        if self.level_intro_timer > 0:
+            self.level_intro_timer -= dt
+        else:
+            # Respawn handling
+            if getattr(self.player, 'needs_respawn', False):
+                if self.level:
+                    sx, sy = self.level.spawn_point
+                    self.player.set_position(sx, sy)
+                    self.player.velocity_x = 0
+                    self.player.velocity_y = 0
+                    self.player.needs_respawn = False
+
+            # Update entities
+            self.entity_manager.update(dt)
         
         # Update effects
         self.effects_manager.update(dt)
@@ -210,28 +256,34 @@ class PlayingState(GameState):
             self.camera.follow_target(self.player.center_x, self.player.center_y, dt)
         
         # Check player-enemy collisions
-        if self.player:
+        if self.player and self.level_intro_timer <= 0:
             enemies = self.entity_manager.get_entities_by_type("enemy")
             for enemy in enemies:
                 if self.player.collides_with(enemy):
                     self.handle_player_enemy_collision(enemy)
+
+            # Check goal
+            for e in self.entity_manager.entities:
+                if getattr(e, 'entity_type', '') == 'goal' and self.player.collides_with(e):
+                    self.level_complete = True
+                    self.level_complete_timer = 2.0
         
         # Update score
         if self.player:
             self.score = self.player.score
         
-        # Check level completion
-        if self.player and self.level:
-            goal_x, goal_y = self.level.goal_point
-            if (abs(self.player.x - goal_x) < 50 and 
-                abs(self.player.y - goal_y) < 50):
-                self.level_complete = True
-                # Add time bonus to score
-                time_bonus = int(self.time_remaining) * 50
-                self.player.score += time_bonus
-                self.effects_manager.create_score_popup(
-                    self.player.x, self.player.y - 50, time_bonus, GREEN
-                )
+        # Handle level completion countdown and bonus
+        if self.level_complete:
+            if self.level_complete_timer > 0:
+                self.level_complete_timer -= dt
+                if self.level_complete_timer <= 0 and self.player:
+                    # Award time bonus and return to menu
+                    time_bonus = int(self.time_remaining) * 50
+                    self.player.score += time_bonus
+                    self.effects_manager.create_score_popup(
+                        self.player.x, self.player.y - 50, time_bonus, GREEN
+                    )
+                    self.game_engine.change_state(STATE_MENU)
     
     def handle_player_enemy_collision(self, enemy) -> None:
         """Handle collision between player and enemy"""
@@ -303,6 +355,10 @@ class PlayingState(GameState):
             complete_text = self.ui_font.render("Level Complete!", True, GREEN)
             complete_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             screen.blit(complete_text, complete_rect)
+        elif self.level_intro_timer > 0:
+            ready_text = self.ui_font.render("Ready!", True, WHITE)
+            ready_rect = ready_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+            screen.blit(ready_text, ready_rect)
 
 class PausedState(GameState):
     """Paused game state"""
